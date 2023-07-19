@@ -667,9 +667,11 @@ def read_dic_file(result_file, FixedScale = False, *args, **kwargs):
             point_list.append(np.array(point)) 
             grid_list.append(copy.deepcopy(mygrid))
     f.close()
+
+    for i in 
     
     ##########
-    
+    """
     array_shape = (len(grid_list),int(xnum),int(ynum))
 
     Pos_x_array = np.empty(array_shape)
@@ -791,7 +793,7 @@ def read_dic_file(result_file, FixedScale = False, *args, **kwargs):
     
     #return Pos_x_array, Pos_y_array, Dx_array, Dy_array, Dxy_array
         
-
+"""
 
 def compute_displacement(point, pointf):
     """To compute a displacement between two point arrays"""
@@ -1031,3 +1033,7 @@ class Plot_and_save:
         # save image
         # plt.savefig(name)
         plt.savefig(name, dpi=800)
+
+
+read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\Controls\1\Happy\ColorOutput\result.dic", FixedScale = False, interpolation='raw', save_image=True, scale_disp=1, scale_grid=1)
+

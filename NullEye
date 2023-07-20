@@ -47,6 +47,7 @@ import os
 import pandas as pd
 
 
+
 #grid_list = []  # saving grid here
 
 #################
@@ -668,9 +669,47 @@ def read_dic_file(result_file, FixedScale = False, *args, **kwargs):
             grid_list.append(copy.deepcopy(mygrid))
     f.close()
 
-    for i in 
+    x_avgDist = []
+    y_avgDist = []
+
+
+    for i in range(len(point_list)-1):
+        curFrame = point_list[0];
+        nextFrame = point_list[i];
+        distSum = 0;
+        for coor in range(len(curFrame)):
+            dx = nextFrame[coor][0] - curFrame[coor][0]
+            dy = nextFrame[coor][1] - curFrame[coor][1]
+            distSum += (dx ** 2 + dy **2) ** 0.5
+
+        avgDist = distSum / len(curFrame)
+        print(0,i,": ",avgDist)
+        x_avgDist.append(i)
+        y_avgDist.append(avgDist)
+
+    plt.plot(x_avgDist, y_avgDist)
     
-    ##########
+    # naming the x axis
+    plt.xlabel('Frame')
+    # naming the y axis
+    plt.ylabel('Average Magnitude of vectors')
+    
+    # giving a title to my graph
+    plt.title('Intensity of muscle movement')
+    
+    # function to show the plot
+    plt.show()
+
+    cv2.waitKey(0) 
+    plt.close()
+
+    
+    
+
+
+
+    
+    
     """
     array_shape = (len(grid_list),int(xnum),int(ynum))
 
@@ -1035,5 +1074,5 @@ class Plot_and_save:
         plt.savefig(name, dpi=800)
 
 
-read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\Controls\1\Happy\ColorOutput\result.dic", FixedScale = False, interpolation='raw', save_image=True, scale_disp=1, scale_grid=1)
+read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\Controls\2\Angry\ColorOutput\result.dic", FixedScale = False, interpolation='raw', save_image=True, scale_disp=1, scale_grid=1)
 

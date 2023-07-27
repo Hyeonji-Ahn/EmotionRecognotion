@@ -45,6 +45,7 @@ import scipy.interpolate
 import copy
 import os
 import pandas as pd
+from PIL import Image
 
 
 #grid_list = []  # saving grid here
@@ -537,6 +538,8 @@ def init(image_pattern, win_size_px, grid_size_px, result_file, area_of_interses
 
     # parse all files and write results file
     point_to_process = points_in
+    original_point = points_in
+    #writing the first picture
     write_result(f, img_list[0], point_to_process)
     for i in range(len(img_list)-1):
         print('reading image {} / {} : "{}"'.format(i +
@@ -571,10 +574,33 @@ def init(image_pattern, win_size_px, grid_size_px, result_file, area_of_interses
                             ii >= area[0][1] and ii < area[1][1]):
                         point_to_process[index] += final_point[ii, jj]
                         index += 1
-
+#WORKING
         else:
-            # draw_opencv(image_ref, point=points_in, pointf=final_point, l_color=(0,255,0), p_color=(0,255,0))
             final_point, st, err = cv2.calcOpticalFlowPyrLK(image_ref, image_str, points_in, None, **lk_params)
+            
+            image = Image.open(img_list[i])
+
+            # Check if the image has an alpha channel (RGBA or LA mode)
+            if image.mode in ('RGBA', 'LA'):
+                # Get the pixel data (a 2-dimensional array of (R, G, B, A) tuples)
+                pixel_data = image.load()
+
+                # Loop through all the pixels
+                for j in range(len(points_in)):
+                        # Get the pixel value at (x, y)
+                        pixel = pixel_data[points_in[j][0],points_in[j][1]]
+
+                        # Check if the alpha value (A) is zero
+                        if len(pixel) == 4 and pixel[3] == 0:
+                            #print(f"Pixel with zero alpha at coordinates ({points_in[j][0]}, {points_in[j][1]})")
+                            final_point[j] = original_point[j]
+
+            # else:
+                #print("The image does not have an alpha channel.")
+
+            #print(img_list[i])
+            
+            #draw_opencv(image_ref, point=points_in, pointf=final_point, l_color=(0,255,0), p_color=(0,255,0))
             point_to_process = final_point
         write_result(f, img_list[i+1], point_to_process)
     f.write('\n')
@@ -715,6 +741,7 @@ def read_dic_file(result_file, FixedScale = False, *args, **kwargs):
             if win_size_x == 1 and win_size_y == 1:
                 mygrid.draw_disp_hsv_img()
 
+        #PROBLEMM STARTS HEREE
         # write result file
         mygrid.write_result()
 ####################################

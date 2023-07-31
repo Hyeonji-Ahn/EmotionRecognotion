@@ -45,7 +45,8 @@ import scipy.interpolate
 import copy
 import os
 import pandas as pd
-
+from PIL import Image
+import dlib
 
 
 #grid_list = []  # saving grid here
@@ -449,140 +450,35 @@ def write_result(result_file, image, points):
 def last_6chars(x):
         return(x[-6:])
 
-def init(image_pattern, win_size_px, grid_size_px, result_file, area_of_intersest=None, Ref_First = False, *args, **kwargs):
-    """the init function is a simple wrapper function that allows to parse a
-         sequence of images. The displacements are computed and a result file is written
-         - the first arg 'image_pattern' is the path where your image are located
-         - the second arg 'win_size_px' is the size in pixel of your correlation windows
-         - the third arg 'grid_size_px' is the size of your correlation grid
-         - the fourth arg 'result_file' locates your result file
-         - the optional argument 'area_of_intersest'gives the area of interset in (size_x,size_y) format.
-         if you don't give this argument, a windows with the first image is displayed.
-         You can pick in this picture manually your area of intersest.
-         - you can use the named argument 'unstructured_grid=(val1,val2)' to let the 'goodFeaturesToTrack'
-         opencv2 algorithm. Note that you can't use the 'spline' or the 'raw' interpolation method."""
-
-    img_list = sorted(glob.glob(image_pattern))
-    assert len(img_list) > 1, "there is not image in " + str(image_pattern)
-    img_ref = cv2.imread(img_list[0], 0)
-    y_1, x_1 = img_ref.shape  # get the shape of image, and the greatest y and x value
-
-    # if (area_of_intersest is 'all'): # debugging
-    if (area_of_intersest == 'all'):
-        area_of_intersest = [(0, 0), (x_1, y_1)]
-
-    # choose area of interset
-    elif (area_of_intersest is None):
-    # else:
-        print("please pick your area of intersest on the picture")
-        # print("This is the else block....")             #debugging
-        area_of_intersest = pick_area_of_interest(img_ref)
-    else:
-        print('Preset Area: {}'.format(area_of_intersest))
-    # init correlation grid
-    area = area_of_intersest
+def detect_face_and_nose(image_path):
+    # Load the face detector from dlib
+    face_detector = dlib.get_frontal_face_detector()
     
-    print(area)
+    # Load the facial landmark detector from dlib
+    landmark_predictor = dlib.shape_predictor(r"C:\Users\ahj28\Desktop\Python\shape_predictor_68_face_landmarks.dat") #change this
 
-    points = []
-    points_x = np.float64(np.arange(area[0][0], area[1][0], grid_size_px[0]))
-    points_y = np.float64(np.arange(area[0][1], area[1][1], grid_size_px[1]))
+    # Convert the image to grayscale
+    gray = cv2.cvtColor(image_path, cv2.COLOR_BGR2GRAY)
 
-    if 'unstructured_grid' in kwargs:
-        block_size, min_dist = kwargs['unstructured_grid']
-        feature_params = dict(maxCorners=50000,
-                              qualityLevel=0.01,
-                              minDistance=min_dist,
-                              blockSize=block_size)
-        points = cv2.goodFeaturesToTrack(
-            img_ref, mask=None, **feature_params)[:, 0]
-    elif 'deep_flow' in kwargs:
-        points_x = np.float64(np.arange(area[0][0], area[1][0], 1))
-        points_y = np.float64(np.arange(area[0][1], area[1][1], 1))
-        for x in points_x:
-            for y in points_y:
-                points.append(np.array([np.float32(x), np.float32(y)]))
-        points = np.array(points)
-    else:
-        for x in points_x:
-            for y in points_y:
-                points.append(np.array([np.float32(x), np.float32(y)]))
-        points = np.array(points)
+    # Detect faces in the grayscale image
+    faces = face_detector(gray)
+    
+    if len(faces) == 0:
+        print("No faces found in the image.")
+        return
+    
+    # Assuming only one face in the image, extract the first face
+    face = faces[0]
 
-    # ok, display
-    points_in = remove_point_outside(points, area, shape='box')
+    # Detect facial landmarks for the detected face
+    landmarks = landmark_predictor(gray, face)
 
-    ##
-    img_ref = cv2.imread(img_list[0], 0)
-    img_ref = cv2.putText(img_ref, "Displaying markers... Press any buttons to continue",
-                          (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 4)
+    # Get the center coordinates of the nose from the facial landmarks
+    nose_coords = (landmarks.part(30).x, landmarks.part(30).y)
 
-    # draw_opencv(img_ref, point=points_in) # debugging
+    return nose_coords
 
-    # compute grid and save it in result file
-    f = open(result_file, 'w')
-    xmin = points_x[0]
-    xmax = points_x[-1]
-    xnum = len(points_x)
-    ymin = points_y[0]
-    ymax = points_y[-1]
-    ynum = len(points_y)
-    f.write(str(xmin) + '\t' + str(xmax) + '\t' +
-            str(int(xnum)) + '\t' + str(int(win_size_px[0])) + '\n')
-    f.write(str(ymin) + '\t' + str(ymax) + '\t' +
-            str(int(ynum)) + '\t' + str(int(win_size_px[1])) + '\n')
-
-    # param for correlation
-    lk_params = dict(winSize=win_size_px, maxLevel=10,
-                     criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
-
-    # parse all files and write results file
-    point_to_process = points_in
-    write_result(f, img_list[0], point_to_process)
-    for i in range(len(img_list)-1):
-        print('reading image {} / {} : "{}"'.format(i +
-              1, len(img_list), img_list[i+1]))
-        # image_ref = cv2.imread(img_list[i], 0)
-        # Change here for consecutive pair DISC analysis.
-        # image_ref = cv2.imread(img_list[0], 0)
-        # image_str = cv2.imread(img_list[i+1], 0)
-
-        if Ref_First:
-            image_ref = cv2.equalizeHist(cv2.imread(img_list[0], 0))
-#######################################################################
-        else: 
-            image_ref = cv2.equalizeHist(cv2.imread(img_list[i], 0))
-        ## Normalize to adjust contrast
-        #image_ref = cv2.equalizeHist(cv2.imread(img_list[0], 0))
-        image_str = cv2.equalizeHist(cv2.imread(img_list[i+1], 0))
-
-        if 'deep_flow' in kwargs:
-            winsize_x = win_size_px[0]
-            final_point = cv2.calcOpticalFlowFarneback(image_ref, image_str, None, 0.5, 3, winsize_x,
-                                                       10, 5, 1.2, 0)
-            # prev, next, flow, pyr_scale, levels, winsize, iterations,poly_n, poly_sigma
-            index = 0
-            ii_max = final_point.shape[0]
-            jj_max = final_point.shape[1]
-
-            for jj in range(jj_max):
-                for ii in range(ii_max):
-                    #area     = [(0,0),(img_ref.shape[1],img_ref.shape[0])]
-                    if (jj >= area[0][0] and jj < area[1][0] and
-                            ii >= area[0][1] and ii < area[1][1]):
-                        point_to_process[index] += final_point[ii, jj]
-                        index += 1
-
-        else:
-            # draw_opencv(image_ref, point=points_in, pointf=final_point, l_color=(0,255,0), p_color=(0,255,0))
-            final_point, st, err = cv2.calcOpticalFlowPyrLK(image_ref, image_str, points_in, None, **lk_params)
-            point_to_process = final_point
-        write_result(f, img_list[i+1], point_to_process)
-    f.write('\n')
-    f.close()
-
-
-def read_dic_file(result_file, FixedScale = False, *args, **kwargs):
+def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
     """the read_dic_file is a simple wrapper function that allows to parse a dic
          file (given by the init() function) and compute the strain fields. The displacement fields
          can be smoothed thanks to many interpolation methods. A good interpolation method to do this
@@ -636,7 +532,49 @@ def read_dic_file(result_file, FixedScale = False, *args, **kwargs):
                     dictionary = dict(zip(field, val))
                     meta_info[val[0]] = dictionary
 
+    #Actual important Part
+
+    pp = mainDir + "\EyeBlacked"
+    image_pattern = pp+'/*.png'
+    img_list = sorted(glob.glob(image_pattern))
+    assert len(img_list) > 1, "there is not image in " + str(image_pattern)
+
+    image = cv2.imread(img_list[0], 0)
+    y_1, x_1 = image.shape 
+    area_of_intersest = [(0, 0), (x_1, y_1)]
+    area = area_of_intersest
+
+    points = []
+    points_x = np.float64(np.arange(area[0][0], area[1][0], grid_size_px[0]))
+    points_y = np.float64(np.arange(area[0][1], area[1][1], grid_size_px[1]))
+
+    for x in points_x:
+        for y in points_y:
+            points.append(np.array([np.float32(x), np.float32(y)]))
+    points = np.array(points)
+
+    points_in = remove_point_outside(points, area, shape='box')
+    number_alpha = 0
+
+    image = Image.open(img_list[0])
+    # Check if the image has an alpha channel (RGBA or LA mode)
+    if image.mode in ('RGBA', 'LA'):
+        # Get the pixel data (a 2-dimensional array of (R, G, B, A) tuples)
+        pixel_data = image.load()
+
+        # Loop through all the pixels
+        for j in range(len(points_in)):
+                # Get the pixel value at (x, y)
+                pixel = pixel_data[points_in[j][0],points_in[j][1]]
+
+                # Check if the alpha value (A) is zero
+                if len(pixel) == 4 and pixel[3] == 0:
+                    number_alpha += 1
+    print(number_alpha)
+
+    result_file = pp + "\\result.dic"
     # first read grid
+
     with open(result_file) as f:
         head = f.readlines()[0:2]
     (xmin, xmax, xnum, win_size_x) = [float(x) for x in head[0].split()]
@@ -669,38 +607,101 @@ def read_dic_file(result_file, FixedScale = False, *args, **kwargs):
             grid_list.append(copy.deepcopy(mygrid))
     f.close()
 
-    x_avgDist = []
-    y_avgDist = []
+    image = cv2.imread(image_list[0])
+    nose_coords = detect_face_and_nose(image)
+    print(nose_coords)
 
+    if nose_coords is None:
+        print("Nose not detected in the first image. Aborting.")
+        exit()
 
-    for i in range(len(point_list)-1):
-        curFrame = point_list[0];
-        nextFrame = point_list[i];
-        distSum = 0;
-        for coor in range(len(curFrame)):
-            dx = nextFrame[coor][0] - curFrame[coor][0]
-            dy = nextFrame[coor][1] - curFrame[coor][1]
-            distSum += (dx ** 2 + dy **2) ** 0.5
+    orixmax = xmax
+    for i in range(5):
+        if(i == 0):
+            title = "Whole Face"
+            #all min max stay same
+        elif(i == 1):
+            title = "Right Down"
+            xmin = nose_coords[0]
+            ymin = nose_coords[1]
+            xmax = xmax
+            ymax = ymax
+        elif(i==2):
+            title = "Left Down"
+            xmin = 0
+            ymin = nose_coords[1]
+            xmax = nose_coords[0]
+            ymax = ymax
+        elif(i==3):
+            title = "Left Up"
+            xmin = 0
+            ymin = 0
+            xmax = nose_coords[0]
+            ymax = nose_coords[1]
+        elif(i == 4):
+            title = "Right Up"
+            xmin = nose_coords[0]
+            ymin = 0
+            xmax = orixmax
+            ymax = nose_coords[1]
+        x_avgDist = []
+        y_avgDist = []
 
-        avgDist = distSum / len(curFrame)
-        print(0,i,": ",avgDist)
-        x_avgDist.append(i)
-        y_avgDist.append(avgDist)
+        number_alpha = 0
+        print(title," // ","xmin: ",xmin, " xmax: ",xmax," ymin: ",ymin," ymax: ",ymax)
 
-    plt.plot(x_avgDist, y_avgDist)
-    
-    # naming the x axis
-    plt.xlabel('Frame')
-    # naming the y axis
-    plt.ylabel('Average Magnitude of vectors')
-    
-    # giving a title to my graph
-    plt.title('Intensity of muscle movement')
-    
-    # function to show the plot
-    plt.show()
+        image = Image.open(img_list[0])
+        # Check if the image has an alpha channel (RGBA or LA mode)
+        if image.mode in ('RGBA', 'LA'):
+            # Get the pixel data (a 2-dimensional array of (R, G, B, A) tuples)
+            pixel_data = image.load()
 
-    cv2.waitKey(0) 
+            # Loop through all the pixels
+            for j in range(len(points_in)):
+                    # Get the pixel value at (x, y)
+                    x = points_in[j][0]
+                    y = points_in[j][1]
+                    if x>xmin and x<xmax and y>ymin and y<ymax:
+                        pixel = pixel_data[points_in[j][0],points_in[j][1]]
+                        # Check if the alpha value (A) is zero
+                        if len(pixel) == 4 and pixel[3] == 0:
+                            number_alpha += 1
+        print("alpha coordinates: ",number_alpha)
+
+        numPoint = 0
+        for i in range(len(point_list)-1):
+            numPoint = 0
+            curFrame = point_list[0];
+            nextFrame = point_list[i];
+            distSum = 0;
+            for coor in range(len(curFrame)):
+                x = nextFrame[coor][0]
+                y = nextFrame[coor][1]
+                if x>xmin and x<xmax and y>ymin and y<ymax:
+                    numPoint+=1
+                    dx = nextFrame[coor][0] - curFrame[coor][0]
+                    dy = nextFrame[coor][1] - curFrame[coor][1]
+                    distSum += (dx ** 2 + dy **2) ** 0.5
+
+            avgDist = distSum / (len(curFrame)-number_alpha) #skip the point with alpha = 0 (transparent)
+            print(0,i,": ",avgDist," total points:",(numPoint-number_alpha))
+            x_avgDist.append(i)
+            y_avgDist.append(avgDist)
+
+        plt.plot(x_avgDist, y_avgDist)
+        
+        # naming the x axis
+        plt.xlabel('Frame')
+        # naming the y axis
+        plt.ylabel('Average Magnitude of vectors')
+        
+        # giving a title to my graph
+        plt.title(title)
+        
+        # function to show the plot
+        plt.show()
+
+        cv2.waitKey(0) 
     plt.close()
 
 def compute_displacement(point, pointf):
@@ -943,4 +944,6 @@ class Plot_and_save:
         plt.savefig(name, dpi=800)
 
 
-read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\Twins\2695\EyeBlacked\result.dic", FixedScale = False, interpolation='raw', save_image=True, scale_disp=1, scale_grid=1)
+read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\Twins\2695", (30,30), interpolation='raw', save_image=True, scale_disp=1, scale_grid=1)
+#def read_dic_file(mainDir, grid_size_px, *args, **kwargs):
+#AVERAGE!!! EXCLUDE BLACKEN FACE

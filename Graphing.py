@@ -234,25 +234,25 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
             title = "Whole Face"
             #all min max stay same
         elif(i == 1):
-            title = "Right Down"
+            title = "Right_Down"
             xmin = nose_coords[0]
             ymin = nose_coords[1]
             xmax = xmax
             ymax = ymax
         elif(i==2):
-            title = "Left Down"
+            title = "Left_Down"
             xmin = 0
             ymin = nose_coords[1]
             xmax = nose_coords[0]
             ymax = ymax
         elif(i==3):
-            title = "Left Up"
+            title = "Left_Up"
             xmin = 0
             ymin = 0
             xmax = nose_coords[0]
             ymax = nose_coords[1]
         elif(i == 4):
-            title = "Right Up"
+            title = "Right_Up"
             xmin = nose_coords[0]
             ymin = 0
             xmax = orixmax
@@ -312,6 +312,7 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
         plt.title(title)
         
         # function to show the plot
+        plt.savefig(os.path.join(mainDir, title+".png"))
         plt.show()
 
         cv2.waitKey(0) 
@@ -397,5 +398,5 @@ class Plot:
 
 
 
-read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\Twins\2695", (30,30), interpolation='raw', save_image=True, scale_disp=1, scale_grid=1) #CHANGE FILE PATH
+read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\Twins\2697", (30,30), interpolation='raw', save_image=True, scale_disp=1, scale_grid=1) #CHANGE FILE PATH
 #def read_dic_file(mainDir, grid_size_px, *args, **kwargs):

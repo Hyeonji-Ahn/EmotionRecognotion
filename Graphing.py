@@ -149,7 +149,7 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
 
     #Actual important Part
 
-    pp = mainDir + "/EyeBlacked"
+    pp = mainDir + "/EyeBlack"
     image_pattern = pp+'/*.png'
     img_list = sorted(glob.glob(image_pattern))
     assert len(img_list) > 1, "there is not image in " + str(image_pattern)
@@ -312,7 +312,10 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
         plt.title(title)
         
         # function to show the plot
-        plt.savefig(os.path.join(mainDir, title+".png"))
+        output_folder = mainDir + "/graph"
+        if not os.path.exists(output_folder):
+            os.makedirs(output_folder)
+        plt.savefig(os.path.join(output_folder, title+".png"))
         plt.show()
 
         cv2.waitKey(0) 
@@ -398,5 +401,5 @@ class Plot:
 
 
 
-read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\Twins\2697", (30,30), interpolation='raw', save_image=True, scale_disp=1, scale_grid=1) #CHANGE FILE PATH
+read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\Twins\2695", (30,30), interpolation='raw', save_image=True, scale_disp=1, scale_grid=1) #CHANGE FILE PATH
 #def read_dic_file(mainDir, grid_size_px, *args, **kwargs):

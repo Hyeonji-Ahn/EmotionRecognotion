@@ -74,388 +74,12 @@ method to treat and post-treat results"""
         self.strain_yy = None
         self.strain_xy = None
 
-    def add_raw_data(self, winsize, reference_image, image, reference_point, correlated_point, disp):
-        """Save raw data to the current grid object. These raw data are used as initial data
-             for digital image correlation"""
-
-        self.winsize = winsize
-        self.reference_image = reference_image
-        self.image = image
-        self.reference_point = reference_point
-        self.correlated_point = correlated_point
-        self.disp = disp
-
-    def add_meta_info(self, meta_info):
-        """Save the related meta info into the current grid object"""
-        self.meta_info = meta_info
-
-    def prepare_saved_file(self, prefix, extension):
-        """Not documented, for internal use only"""
-
-        folder = os.path.dirname(self.image)
-        folder = folder + '/pydic/' + prefix
-        if not os.path.exists(folder):
-            os.makedirs(folder)
-        base = os.path.basename(self.image)
-        name = folder + '/' + \
-            os.path.splitext(base)[0] + '_' + prefix + '.' + extension
-        print("saving", name, "file...")
-        return name
-
-    def draw_marker_img(self):
-        """Draw marker image"""
-        name = self.prepare_saved_file('marker', 'png')
-        draw_opencv(self.image, point=self.correlated_point, l_color=(
-            0, 0, 255), p_color=(255, 255, 0), filename=name, text=name)
-
-    def draw_disp_img(self, scale):
-        """Draw displacement image. A scale value can be passed to amplify the displacement field"""
-        name = self.prepare_saved_file('disp', 'png')
-        ##draw_opencv(self.reference_image, point=self.reference_point, pointf=self.correlated_point, l_color=(0,0,255), p_color=(255,255,0), scale=scale, filename=name, text=name)
-        # draw_opencv(self.image, point=self.reference_point, pointf=self.correlated_point, l_color=(
-        #     0, 0, 255), p_color=(0, 0, 255), scale=scale, filename=name, text='Amplification = '+str(scale))
-        draw_opencv(self.image, point=self.reference_point, pointf=self.correlated_point, l_color=(
-            0, 0, 255), p_color=(0, 0, 255), scale=scale, filename=name)
-
-    def draw_vector_map(self, scale, sparsity):
-        """Draw the vector map. A scale value can be passed to amplify the displacement field"""
-        name = self.prepare_saved_file('vmap', 'png')
-        h, w, c = cv2.imread(self.image).shape
-        mask = np.full([h + 2, w + 2], 255, np.uint8)
-        # draw_opencv(self.image, point=self.reference_point, pointf=self.correlated_point, l_color=(
-        #     0, 0, 255), p_color=(0, 0, 255), scale=scale, filename=name, text='Amplification = '+str(scale), mask=mask, sparsity=sparsity)
-
-        draw_opencv(self.image, point=self.reference_point, pointf=self.correlated_point, l_color=(
-            0, 0, 255), p_color=(0, 0, 255), scale=scale, filename=name, mask=mask, sparsity=sparsity)
-
-    def draw_disp_hsv_img(self, *args, **kwargs):
-        """Draw displacement image in a hsv view."""
-        name = self.prepare_saved_file('disp_hsv', 'png')
-        img = self.reference_image
-        if type(img) == str:
-            img = cv2.imread(img, 0)
-
-        disp = self.correlated_point - self.reference_point
-        fx, fy = disp[:, 0], disp[:, 1]
-        v_all = np.sqrt(fx*fx + fy*fy)
-        v_max = np.mean(v_all) + 2.*np.std(v_all)
-
-        rgb = cv2.cvtColor(img, cv2.COLOR_GRAY2BGR)
-        hsv = cv2.cvtColor(rgb, cv2.COLOR_BGR2HSV)
-
-        if v_max != 0.:
-            for i, val in enumerate(self.reference_point):
-                disp = self.correlated_point[i] - val
-                ang = np.arctan2(disp[1], disp[0]) + np.pi
-                v = np.sqrt(disp[0]**2 + disp[1]**2)
-                pt_x = int(val[0])
-                pt_y = int(val[1])
-
-                hsv[pt_y, pt_x, 0] = int(ang*(180/np.pi/2))
-                hsv[pt_y, pt_x, 1] = 255 if int(
-                    (v/v_max)*255.) > 255 else int((v/v_max)*255.)
-                hsv[pt_y, pt_x, 2] = 255 if int(
-                    (v/v_max)*255.) > 255 else int((v/v_max)*255.)
-
-        bgr = cv2.cvtColor(hsv, cv2.COLOR_HSV2BGR)
-        bgr = cv2.putText(bgr, name, (50, 50),
-                          cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 4)
-
-        if 'save_img' in kwargs:
-            cv2.imwrite(name, bgr)
-        if 'show_img' in kwargs:
-            cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-            cv2.resizeWindow('image', bgr.shape[1], bgr.shape[0])
-            cv2.imshow('image', bgr)
-            cv2.waitKey(0)
-            cv2.destroyAllWindows()
-
-    def draw_grid_img(self, scale):
-        """Draw grid image. A scale value can be passed to amplify the displacement field"""
-        name = self.prepare_saved_file('grid', 'png')
-        draw_opencv(self.reference_image, grid=self, scale=scale,
-                    gr_color=(255, 255, 250), filename=name, text=name)
-
-    def write_result(self):
-        """write a raw csv result file. Indeed, you can use your favorite tool to post-treat this file"""
-        name = self.prepare_saved_file('result', 'csv')
-        f = open(name, 'w')
-        f.write("pos_x" + ',' + "pos_y" + ',' +
-                "disp_x" + ',' + "disp_y" + ',' + "disp_xy_indi" + '\n')
-        index = 0
-        for i in range(self.size_x):
-            for j in range(self.size_y):
-                f.write(str(self.grid_x[i, j]) + ',' + str(self.grid_y[i, j]) + ',' +
-                        str(self.disp_x[i, j]) + ',' + str(self.disp_y[i, j]) + ',' + str(self.disp_xy_indi[i, j]) + '\n')
-                index = index + 1
-        f.close()
-
-    def plot_field(self, field, title):
-        """Plot the chosen field such as strain_xx, disp_xx, etc. in a matplotlib interactive map"""
-        image_ref = cv2.imread(self.image)
-        ##image_ref = cv2.imread(self.image, 0)
-        new_img_ref = cv2.cvtColor(image_ref, cv2.COLOR_RGB2BGR)
-        Plot(new_img_ref, self, field, title)
-
-    def interpolate_displacement(self, point, disp, *args, **kwargs):
-        """Interpolate the displacement field. It allows to (i) construct the displacement grid and to
-             (ii) smooth the displacement field thanks to the chosen method (raw, linear, spline,etc.)"""
-
-        x = np.array([p[0] for p in point])
-        y = np.array([p[1] for p in point])
-        dx = np.array([d[0] for d in disp])
-        dy = np.array([d[1] for d in disp])
-        method = 'linear' if not 'method' in kwargs else kwargs['method']
-
-        print('interpolate displacement with', method, 'method')
-        if method == 'delaunay':
-            from scipy.interpolate import LinearNDInterpolator
-            inter_x = LinearNDInterpolator(point, dx)
-            inter_y = LinearNDInterpolator(point, dy)
-            self.disp_x = inter_x(self.grid_x, self.grid_y)
-            self.disp_y = inter_y(self.grid_x, self.grid_y)
-
-        elif method == 'raw':
-            # need debugging
-            self.disp_x = self.grid_x.copy()
-            self.disp_y = self.grid_y.copy()
-            self.disp_xy_indi = self.grid_x.copy()
-
-            assert self.disp_x.shape[0] == self.disp_y.shape[0], "bad shape"
-            assert self.disp_x.shape[1] == self.disp_y.shape[1], "bad shape"
-            assert len(dx) == len(dy), "bad shape"
-            assert self.disp_x.shape[1] * \
-                self.disp_x.shape[0] == len(dx), "bad shape"
-            count = 0
-            for i in range(self.disp_x.shape[0]):
-                for j in range(self.disp_x.shape[1]):
-                    self.disp_x[i, j] = dx[count]
-                    self.disp_y[i, j] = dy[count]
-                    self.disp_xy_indi[i, j] = (dx[count]**2+dy[count]**2)**0.5
-                    count = count + 1
-
-        elif method == 'spline':
-            tck_x = scipy.interpolate.bisplrep(
-                self.grid_x, self.grid_y, dx, kx=5, ky=5)
-            self.disp_x = scipy.interpolate.bisplev(
-                self.grid_x[:, 0], self.grid_y[0, :], tck_x)
-
-            tck_y = scipy.interpolate.bisplrep(
-                self.grid_x, self.grid_y, dy, kx=5, ky=5)
-            self.disp_y = scipy.interpolate.bisplev(
-                self.grid_x[:, 0], self.grid_y[0, :], tck_y)
-
-        else:
-            self.disp_x = griddata(
-                (x, y), dx, (self.grid_x, self.grid_y), method=method)
-            self.disp_y = griddata(
-                (x, y), dy, (self.grid_x, self.grid_y), method=method)
-
-    def compute_strain_field(self):
-        """Compute strain field from displacement thanks to numpy"""
-        # get strain fields
-        dx = self.grid_x[1][0] - self.grid_x[0][0]
-        dy = self.grid_y[0][1] - self.grid_y[0][0]
-
-        strain_xx, strain_xy = np.gradient(self.disp_x, dx, dy, edge_order=2)
-        strain_yx, strain_yy = np.gradient(self.disp_y, dx, dy, edge_order=2)
-
-        self.strain_xx = strain_xx + .5 * \
-            (np.power(strain_xx, 2) + np.power(strain_yy, 2))
-        self.strain_yy = strain_yy + .5 * \
-            (np.power(strain_xx, 2) + np.power(strain_yy, 2))
-        self.strain_xy = .5*(strain_xy + strain_yx +
-                             strain_xx*strain_xy + strain_yx*strain_yy)
-
-    def compute_strain_field_DA(self):
-        """Compute strain field from displacement field thanks to a custom method for large strain"""
-        self.strain_xx = self.disp_x.copy()
-        self.strain_xx.fill(np.NAN)
-        self.strain_xy = self.disp_x.copy()
-        self.strain_xy.fill(np.NAN)
-        self.strain_yy = self.disp_x.copy()
-        self.strain_yy.fill(np.NAN)
-        self.strain_yx = self.disp_x.copy()
-        self.strain_yx.fill(np.NAN)
-
-        dx = self.grid_x[1][0] - self.grid_x[0][0]
-        dy = self.grid_y[0][1] - self.grid_y[0][0]
-
-        for i in range(self.size_x):
-            for j in range(self.size_y):
-                du_dx = 0.
-                dv_dy = 0.
-                du_dy = 0.
-                dv_dx = 0.
-
-                if i-1 >= 0 and i+1 < self.size_x:
-                    du = self.disp_x[i+1, j] - self.disp_x[i-1, j]
-                    du_dx = du/(2.*dx)
-                    du_dy = du/(2.*dy)
-
-                if j-1 >= 0 and j+1 < self.size_y:
-                    dv = self.disp_y[i, j+1] - self.disp_y[i, j-1]
-                    dv_dx = dv/(2.*dx)
-                    dv_dy = dv/(2.*dy)
-
-                self.strain_xx[i, j] = du_dx + .5*(du_dx**2 + dv_dy**2)
-                self.strain_yy[i, j] = dv_dy + .5*(du_dx**2 + dv_dy**2)
-                self.strain_xy[i, j] = .5 * \
-                    (du_dy + dv_dx + du_dx*du_dy + dv_dx*dv_dy)
-
-    def average(self, value, x_range, y_range):
-        """Get the average value in the specified x,y range of the given field"""
-        val = []
-        for x in x_range:
-            for y in y_range:
-                if np.isnan(value[x, y]) == False:
-                    val.append(value[x, y])
-        return np.average(val)
-
-    def std(self, value, x_range, y_range):
-        """Get the standard deviation value in the specified x,y range of the given field"""
-        val = []
-        for x in x_range:
-            for y in y_range:
-                if np.isnan(value[x, y]) == False:
-                    val.append(value[x, y])
-        return np.std(val)
-
-    # added by Fan
-    # def save_overlay(self, field, title):
-    def save_overlay(self, field, title, scaleRange,upper_limit,lower_limit,FixedScale):
-        "draw and save overlaid image"
-        name = self.prepare_saved_file('overlaid', 'png')
-        image = cv2.imread(self.image)
-        new_image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        Plot_and_save(new_image, self, field, name, title,scaleRange,upper_limit,lower_limit,FixedScale)
-
-
-def build_grid(area, num_point, *args, **kwargs):
-    xmin = area[0][0]
-    xmax = area[1][0]
-    dx = xmax - xmin
-    ymin = area[0][1]
-    ymax = area[1][1]
-    dy = ymax - ymin
-    point_surface = dx*dy/num_point
-    point_line = math.sqrt(point_surface)
-    ratio = 1. if not 'ratio' in kwargs else kwargs['ratio']
-    num_x = int(ratio*dx/point_line) + 1
-    num_y = int(ratio*dy/point_line) + 1
-    grid_x, grid_y = np.mgrid[xmin:xmax:num_x*1j, ymin:ymax:num_y*1j]
-    return grid(grid_x, grid_y, num_x, num_y)
-
-
-def draw_opencv(image, *args, **kwargs):
-    """A function with a lot of named argument to draw opencv image
- - 'point' arg must be an array of (x,y) point
- - 'p_color' arg to choose the color of point in (r,g,b) format
- - 'pointf' to draw lines between point and pointf, pointf
-   must be an array of same lenght than the point array
- - 'l_color' to choose the color of lines
- - 'grid' to display a grid, the grid must be a grid object
- - 'gr_color' to choose the grid color"""
-    if type(image) == str:
-        image = cv2.imread(image, 0)
-
-    if 'text' in kwargs:
-        text = kwargs['text']
-        image = cv2.putText(image, text, (50, 50),
-                            cv2.FONT_HERSHEY_SIMPLEX, 1, (0, 0, 0), 4)
-
-    frame = cv2.cvtColor(image, cv2.COLOR_GRAY2BGR)
-    if 'mask' in kwargs:
-        frame = kwargs['mask']
-
-    if 'point' in kwargs:
-        p_color = (0, 0, 0) if not 'p_color' in kwargs else kwargs['p_color']
-        for pt in kwargs['point']:
-            if not np.isnan(pt[0]) and not np.isnan(pt[1]):
-                x = int(pt[0])
-                y = int(pt[1])
-                frame = cv2.circle(frame, (x, y), 0, p_color, -1)
-
-    scale = 1. if not 'scale' in kwargs else kwargs['scale']
-    sparsity = 1 if not 'sparsity' in kwargs else kwargs['sparsity'] 
-    if 'pointf' in kwargs and 'point' in kwargs:
-        assert len(kwargs['point']) == len(kwargs['pointf']), 'bad size'
-        l_color = (
-            255, 120, 255) if not 'l_color' in kwargs else kwargs['l_color']
-        count = 1
-        for i, pt0 in enumerate(kwargs['point']):
-            pt1 = kwargs['pointf'][i]
-            if np.isnan(pt0[0]) == False and np.isnan(pt0[1]) == False and np.isnan(pt1[0]) == False and np.isnan(pt1[1]) == False:
-                if count%sparsity == 0:
-                    disp_x = (pt1[0]-pt0[0])*scale
-                    disp_y = (pt1[1]-pt0[1])*scale
-                    frame = cv2.arrowedLine(frame, (int(pt0[0]), int(pt0[1])), (int(
-                        pt0[0]+disp_x), int(pt0[1]+disp_y)), l_color, thickness=1)  # , tipLength=0.1)
-                count+=1
-
-    if 'grid' in kwargs:
-        gr = kwargs['grid']
-        gr_color = (
-            255, 255, 255) if not 'gr_color' in kwargs else kwargs['gr_color']
-        for i in range(gr.size_x):
-            for j in range(gr.size_y):
-                if (not math.isnan(gr.grid_x[i, j]) and
-                    not math.isnan(gr.grid_y[i, j]) and
-                    not math.isnan(gr.disp_x[i, j]) and
-                        not math.isnan(gr.disp_y[i, j])):
-                    x = int(gr.grid_x[i, j]) + int(gr.disp_x[i, j]*scale)
-                    y = int(gr.grid_y[i, j]) + int(gr.disp_y[i, j]*scale)
-
-                    if i < (gr.size_x-1):
-                        if (not math.isnan(gr.grid_x[i+1, j]) and
-                            not math.isnan(gr.grid_y[i+1, j]) and
-                            not math.isnan(gr.disp_x[i+1, j]) and
-                                not math.isnan(gr.disp_y[i+1, j])):
-                            x1 = int(gr.grid_x[i+1, j]) + \
-                                int(gr.disp_x[i+1, j]*scale)
-                            y1 = int(gr.grid_y[i+1, j]) + \
-                                int(gr.disp_y[i+1, j]*scale)
-                            frame = cv2.line(
-                                frame, (x, y), (x1, y1), gr_color, 2)
-
-                    if j < (gr.size_y-1):
-                        if (not math.isnan(gr.grid_x[i, j+1]) and
-                            not math.isnan(gr.grid_y[i, j+1]) and
-                            not math.isnan(gr.disp_x[i, j+1]) and
-                                not math.isnan(gr.disp_y[i, j+1])):
-                            x1 = int(gr.grid_x[i, j+1]) + \
-                                int(gr.disp_x[i, j+1]*scale)
-                            y1 = int(gr.grid_y[i, j+1]) + \
-                                int(gr.disp_y[i, j+1]*scale)
-                            frame = cv2.line(
-                                frame, (x, y), (x1, y1), gr_color, 4)
-    if 'filename' in kwargs:
-        cv2.imwrite(kwargs['filename'], frame)
-        return
-
-    cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('image', frame.shape[1], frame.shape[0])
-    cv2.imshow('image', frame)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
-
-
-def write_result(result_file, image, points):
-    result_file.write(image + '\t')
-    for p in points:
-        result_file.write(str(p[0]) + ',' + str(p[1]) + '\t')
-    result_file.write('\n')
-
-
-def last_6chars(x):
-        return(x[-6:])
-
 def detect_face_and_nose(image_path):
     # Load the face detector from dlib
     face_detector = dlib.get_frontal_face_detector()
     
     # Load the facial landmark detector from dlib
-    landmark_predictor = dlib.shape_predictor(r"C:\Users\ahj28\Desktop\Python\shape_predictor_68_face_landmarks.dat") #change this
+    landmark_predictor = dlib.shape_predictor(r"C:\Users\ahj28\Desktop\Python\shape_predictor_68_face_landmarks.dat") #CHANGE FILE PATH
 
     # Convert the image to grayscale
     gray = cv2.cvtColor(image_path, cv2.COLOR_BGR2GRAY)
@@ -507,15 +131,6 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
          - 'meta_info_file' is the path to a meta info file. A meta info file is a simple csv file
          that contains some additional data for each pictures such as time or load values.
     """
-    # treat optional args
-    interpolation = 'raw' if not 'interpolation' in kwargs else kwargs['interpolation']
-    save_image = True if not 'save_image' in kwargs else kwargs['save_image']
-    scale_disp = 1 if not 'scale_disp' in kwargs else float(
-        kwargs['scale_disp'])
-    scale_grid = 25. if not 'scale_grid' in kwargs else float(
-        kwargs['scale_grid'])
-    sparsity = 1 if not 'sparsity' in kwargs else int(
-        kwargs['sparsity'])
 
     # read meta info file
     meta_info = {}
@@ -534,7 +149,7 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
 
     #Actual important Part
 
-    pp = mainDir + "\EyeBlacked"
+    pp = mainDir + "/EyeBlacked"
     image_pattern = pp+'/*.png'
     img_list = sorted(glob.glob(image_pattern))
     assert len(img_list) > 1, "there is not image in " + str(image_pattern)
@@ -572,14 +187,13 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
                     number_alpha += 1
     print(number_alpha)
 
-    result_file = pp + "\\result.dic"
+    result_file = pp + "/result.dic"
     # first read grid
 
     with open(result_file) as f:
         head = f.readlines()[0:2]
     (xmin, xmax, xnum, win_size_x) = [float(x) for x in head[0].split()]
     (ymin, ymax, ynum, win_size_y) = [float(x) for x in head[1].split()]
-    win_size = (win_size_x, win_size_y)
 
     # print(xmin, xmax, xnum, win_size_x)
     # print(ymin, ymax, ynum, win_size_y)
@@ -591,7 +205,6 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
     grid_list = []
     point_list = []
     image_list = []
-    disp_list = []
 
     # parse the result file
     with open(result_file) as f:
@@ -704,59 +317,8 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
         cv2.waitKey(0) 
     plt.close()
 
-def compute_displacement(point, pointf):
-    """To compute a displacement between two point arrays"""
-    assert len(point) == len(pointf)
-    values = []
-    for i, pt0 in enumerate(point):
-        pt1 = pointf[i]
-        values.append((pt1[0]-pt0[0], pt1[1]-pt0[1]))
-    return values
-
-
 area = []
 cropping = False
-
-
-def pick_area_of_interest(PreliminaryImage):
-    global area, cropping
-    image = cv2.putText(PreliminaryImage, "Pick the area of interest (left click + move mouse) and press 'c' button to continue",
-                        (50, 50), cv2.FONT_HERSHEY_SIMPLEX, 1, (255, 255, 255), 4)
-
-    def click_and_crop(event, x, y, flags, param):
-        global area, cropping
-        if event == cv2.EVENT_LBUTTONDOWN:
-            area = [(x, y)]
-            cropping = True
-
-        elif event == cv2.EVENT_LBUTTONUP:
-            area.append((x, y))
-            cropping = False
-
-            # draw a rectangle around the region of interest
-            Newimage = cv2.rectangle(image, area[0], area[1], (0, 255, 0), 2)
-            cv2.imshow('image', Newimage)
-
-    clone = image.copy()
-    cv2.namedWindow('image', cv2.WINDOW_NORMAL)
-    cv2.resizeWindow('image', image.shape[1], image.shape[0])
-    cv2.setMouseCallback("image", click_and_crop)
-
-    # keep looping until the 'c' key is pressed
-    while True:
-        # display the image and wait for a keypress
-        cv2.imshow("image", image)
-        key = cv2.waitKey(1) & 0xFF
-
-        # if the 'r' key is pressed, reset the cropping region
-        if key == ord("r"):
-            image = clone.copy()
-
-            # if the 'c' key is pressed, break from the loop
-        elif key == ord("c"):
-            break
-    return area
-
 
 def remove_point_outside(points, area,  *args, **kwargs):
     shape = 'box' if not 'shape' in kwargs else kwargs['shape']
@@ -772,59 +334,6 @@ def remove_point_outside(points, area,  *args, **kwargs):
         if ((x >= xmin) and (x <= xmax) and (y >= ymin) and (y <= ymax)):
             res.append(p)
     return np.array(res)
-
-
-def compute_disp_and_remove_rigid_transform(p1, p2):
-    A = []
-    B = []
-    removed_indices = []
-    for i in range(len(p1)):
-        if np.isnan(p1[i][0]):
-            assert np.isnan(p1[i][0]) and np.isnan(
-                p1[i][1]) and np.isnan(p2[i][0]) and np.isnan(p2[i][1])
-            removed_indices.append(i)
-        else:
-            A.append(p1[i])
-            B.append(p2[i])
-
-    A = np.matrix(A)
-    B = np.matrix(B)
-    assert len(A) == len(B)
-    N = A.shape[0]  # total points
-
-    centroid_A = np.mean(A, axis=0)
-    centroid_B = np.mean(B, axis=0)
-
-    # centre the points
-    AA = np.matrix(A - np.tile(centroid_A, (N, 1)))
-    BB = np.matrix(B - np.tile(centroid_B, (N, 1)))
-
-    # dot is matrix multiplication for array
-    H = np.transpose(AA) * BB
-    U, S, Vt = np.linalg.svd(H)
-    R = Vt.T * U.T
-
-    # special reflection case
-    if np.linalg.det(R) < 0:
-        print("Reflection detected")
-        Vt[2, :] *= -1
-        R = Vt.T * U.T
-
-    n = len(A)
-    T = -R*centroid_A.T + centroid_B.T
-    A2 = (R*A.T) + np.tile(T, (1, n))
-    A2 = np.array(A2.T)
-    out = []
-    j = 0
-    for i in range(len(p1)):
-        if np.isnan(p1[i][0]):
-            out.append(p1[i])
-        else:
-            out.append(A2[j])
-            j = j + 1
-    out = np.array(out)
-    return compute_displacement(p2, out)
-
 
 class Plot:
     def __init__(self, image, grid, data, title):
@@ -887,63 +396,6 @@ class Plot:
         # plt.colorbar(self.im)
 
 
-class Plot_and_save:
-    # def __init__(self, image, grid, data, name, title):
-    ############################################################
-    def __init__(self, image, grid, data, name, title, scaleRange,upper_limit,lower_limit,FixedScale):
-        self.data = np.ma.masked_invalid(data)
-        self.data_copy = np.copy(self.data)
-        self.grid_x = grid.grid_x
-        self.grid_y = grid.grid_y
-        self.data = np.ma.array(self.data, mask=self.data == np.nan)
-        # need to add a mask file
 
-        self.title = title
-        self.image = image
-        self.name = name
-
-        self.scaleRange = scaleRange
-        self.upper_limit = upper_limit
-        self.lower_limit = lower_limit
-
-        self.fig = plt.figure()
-        self.ax = self.fig.add_subplot(111)
-        self.fig.subplots_adjust(left=0.25, bottom=0.25)
-        # self.fig.subplots_adjust(left=0, bottom=0)
-
-        self.ax.imshow(image, cmap=plt.cm.binary)
-
-
-        if not FixedScale:
-            self.im = self.ax.contourf(grid.grid_x, grid.grid_y, self.data, 20, cmap=plt.cm.jet, vmax=self.data.max(), vmin=self.data.min(), alpha=0.3) #alpha=0.3
-        # above is auto scale, below is fixed scale.
-        
-
-        # scale = [i/2 for i in range(0,21,1)] # make sure total step numbers = 20!!!!!
-        # make sure total step numbers = 20!!!!!
-        # scale = [i for i in range(0, 201, 10)]
-        # self.im = self.ax.contourf(
-        #     grid.grid_x, grid.grid_y, self.data, scale, cmap=plt.cm.jet, vmax=200, vmin=0, alpha=0.3)
-        # self.contour_axis = plt.gca()
-
-
-
-        
-        else:
-            scale = [i/100 for i in range(0,int(100*scaleRange)+1,int(100*scaleRange/25))] #25 of palette color
-            self.im = self.ax.contourf(grid.grid_x, grid.grid_y, self.data,scale, cmap=plt.cm.jet, vmax=upper_limit, vmin=lower_limit, alpha=0.13)
-
-        self.contour_axis = plt.gca()
-
-
-        # self.ax.set_title(title)
-        self.cb = self.fig.colorbar(self.im)
-
-        # save image
-        # plt.savefig(name)
-        plt.savefig(name, dpi=800)
-
-
-read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\Twins\2695", (30,30), interpolation='raw', save_image=True, scale_disp=1, scale_grid=1)
+read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\Twins\2695", (30,30), interpolation='raw', save_image=True, scale_disp=1, scale_grid=1) #CHANGE FILE PATH
 #def read_dic_file(mainDir, grid_size_px, *args, **kwargs):
-#AVERAGE!!! EXCLUDE BLACKEN FACE

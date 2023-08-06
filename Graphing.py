@@ -47,6 +47,7 @@ import os
 import pandas as pd
 from PIL import Image
 import dlib
+import csv
 
 
 #grid_list = []  # saving grid here
@@ -318,7 +319,17 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
         plt.savefig(os.path.join(output_folder, title+".png"))
         plt.show()
 
-        cv2.waitKey(0) 
+        cv2.waitKey(0)
+        
+        fileName = output_folder+"/"+title+".csv"
+        directory = os.path.dirname(fileName)
+        if not os.path.exists(directory):
+            os.makedirs(directory)
+        csv_file = open(fileName, 'w+')
+        csvWriter = csv.writer(csv_file, delimiter=',')
+        for i in  range(len(x_avgDist)):
+            csvWriter.writerow([x_avgDist[i], y_avgDist[i]])
+        print(title, " Saved!")
     plt.close()
 
 area = []
@@ -401,5 +412,5 @@ class Plot:
 
 
 
-read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\ControlsAfterAugust\Ketamin\4a", (30,30), interpolation='raw', save_image=True, scale_disp=1, scale_grid=1) #CHANGE FILE PATH
+read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\ControlsAfterAugust\b3\b3bef", (30,30), interpolation='raw', save_image=True, scale_disp=1, scale_grid=1) #CHANGE FILE PATH
 #def read_dic_file(mainDir, grid_size_px, *args, **kwargs):

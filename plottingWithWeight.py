@@ -391,7 +391,7 @@ def draw_opencv(image, *args, **kwargs):
         count = 1
         for i, pt0 in enumerate(kwargs['point']):
             pt1 = kwargs['pointf'][i]
-            if np.isnan(pt0[0]) == False and np.isnan(pt0[1]) == False and np.isnan(pt1[0]) == False and np.isnan(pt1[1]) == False and math.isinf(pt1[0]) == False and math.isinf(pt1[1]) == False:
+            if np.isnan(pt0[0]) == False and np.isnan(pt0[1]) == False and np.isnan(pt1[0]) == False and np.isnan(pt1[1]) == False:
                 if count%sparsity == 0:
                     disp_x = (pt1[0]-pt0[0])*scale
                     disp_y = (pt1[1]-pt0[1])*scale
@@ -609,14 +609,14 @@ def init(image_pattern, win_size_px, grid_size_px, result_file, area_of_interses
     original_point = points_in
 
     #calculating weights
-    weight = [[2,1,0], [2,1,0],[2,1,-0.9],[2,1,0.9]]
+    weight = [[1.5,1,0], [1.5,1,0],[1.5,1,-0.9],[1.5,1,0.9]]
     matrix2_0 = [[weight[0][0], weight[0][0] * weight[0][1] * weight[0][2]] , [weight[0][0] * weight[0][1] * weight[0][2] , weight[0][1]]]
     matrix2_1 = [[weight[1][0], weight[1][0] * weight[1][1] * weight[1][2]] , [weight[1][0] * weight[1][1] * weight[1][2] , weight[1][1]]]
     matrix2_2 = [[weight[2][0], weight[2][0] * weight[2][1] * weight[2][2]] , [weight[2][0] * weight[2][1] * weight[2][2] , weight[2][1]]]
     matrix2_3 = [[weight[3][0], weight[3][0] * weight[3][1] * weight[3][2]] , [weight[3][0] * weight[3][1] * weight[3][2] , weight[3][1]]]
     matrix2 = [np.linalg.inv(matrix2_0),np.linalg.inv(matrix2_1),np.linalg.inv(matrix2_2),np.linalg.inv(matrix2_3)]
     kernels = [None] * len(points_in)
-    center = detect_face_landmarks(img_list[0], r"C:\Users\ahj28\Desktop\Garcia DISC Data\Control - 2522\weight")
+    center = detect_face_landmarks(img_list[0], r"C:\Users\ahj28\Desktop\Garcia DISC Data\ControlsAfterAugust\b3 weighted\b3aft")
         
     for j in range(len(points_in)):
         kernel = 0

@@ -412,5 +412,5 @@ class Plot:
 
 
 
-read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\ControlsAfterAugust\b5\b5bef", (30,30), interpolation='raw', save_image=True, scale_disp=1, scale_grid=1) #CHANGE FILE PATH
+read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\ControlsAfterAugust\Ketamin\4a", (10,10), interpolation='raw', save_image=True, scale_disp=1, scale_grid=1) #CHANGE FILE PATH
 #def read_dic_file(mainDir, grid_size_px, *args, **kwargs):

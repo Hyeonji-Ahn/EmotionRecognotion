@@ -48,6 +48,8 @@ import pandas as pd
 from PIL import Image
 from collections import Counter
 from statistics import median, mean
+from scipy.stats import gaussian_kde
+from scipy.signal import find_peaks
 
 
 #grid_list = []  # saving grid here
@@ -615,9 +617,53 @@ def init(image_pattern, win_size_px, grid_size_px, result_file, area_of_interses
                 dxs.append(final_point[k][0] - original_point[k][0])
                 dys.append(final_point[k][1] - original_point[k][1])
 
-            xmode, xmedian, xmean_value = compute_statistics(dxs)
-            ymode, ymedian, ymean_value = compute_statistics(dys)
-            print(xmode, " " , ymode)
+            # Using KDE to estimate the distribution
+            kdeX = gaussian_kde(dxs)
+
+            # Generating a range of values to evaluate the KDE
+            x_eval = np.linspace(min(dxs), max(dxs), 1000)
+            densityX = kdeX(x_eval)
+
+            # Finding the peaks in the KDE, which correspond to the modes
+            peaksX, _ = find_peaks(densityX)
+
+            maxX =0 
+            for k in range(len(densityX)):
+                if densityX[k] > maxX:
+                    maxX = densityX[k]
+                    indmaxX = k
+            maxX = x_eval[indmaxX]
+
+
+            # Print the location of the modes
+            for peak in peaksX:
+                print(f"Mode at x = {x_eval[peak]}")
+
+            plt.plot(x_eval, densityX)
+            plt.scatter(x_eval[peaksX], densityX[peaksX], color='red') # Peaks in red
+            plt.show()
+
+            # Using KDE to estimate the distribution
+            kdeY = gaussian_kde(dys)
+
+            # Generating a range of values to evaluate the KDE
+            y_eval = np.linspace(min(dys), max(dys), 1000)
+            densityY = kdeY(y_eval)
+
+            # Finding the peaks in the KDE, which correspond to the modes
+            peaksY, _ = find_peaks(densityY)
+            maxY =0 
+            for k in range(len(densityY)):
+                if densityY[k] > maxY:
+                    maxY = densityY[k]
+                    indmaxY = k
+            maxY = y_eval[indmaxY]
+
+            # Print the location of the modes
+            for peak in peaksY:
+                print(f"Mode at x = {y_eval[peak]}")
+
+            print(maxX, " " , maxY)
 
             # Check if the image has an alpha channel (RGBA or LA mode)
             if image.mode in ('RGBA', 'LA'):
@@ -634,8 +680,10 @@ def init(image_pattern, win_size_px, grid_size_px, result_file, area_of_interses
                             #print(f"Pixel with zero alpha at coordinates ({points_in[j][0]}, {points_in[j][1]})")
                             final_point[j] = original_point[j]
                         else:
-                            final_point[j][0] -= xmode
-                            final_point[j][1] -= ymode
+                            if(len(peaksX) > 1):
+                                final_point[j][0] -= maxX
+                            if(len(peaksY) > 1):
+                                final_point[j][1] -= maxY
 
             # else:
                 #print("The image does not have an alpha channel.")

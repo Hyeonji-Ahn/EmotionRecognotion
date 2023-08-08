@@ -1,36 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-
-# This file is part of pydic, a free digital correlation suite for computing strain fields
-#
-# Author :  - Damien ANDRE, SPCTS/ENSIL-ENSCI, Limoges France
-#             <damien.andre@unilim.fr>
-#
-# Copyright (C) 2017 Damien ANDRE
-#
-# This program is free software: you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation, either version 3 of the License, or
-# (at your option) any later version.
-#
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
-#
-# You should have received a copy of the GNU General Public License
-# along with this program.  If not, see <http://www.gnu.org/licenses/>.
-
-
-# ====== INTRODUCTION
-# Welcome to pydic a free python suite for digital image correlation.
-# pydic allows to compute (smoothed or not) strain fields from a serie of pictures.
-# pydic takes in account the rigid body transformation.
-
-# Note that this file is a module file, you can't execute it.
-# You can go to the example directory for usage examples.
-
-
+from collections import Counter
+from statistics import median, mean
+import csv
 from contextlib import AsyncExitStack
 import numpy as np
 import cv2
@@ -49,10 +19,30 @@ from PIL import Image
 import dlib
 import csv
 
+def compute_statistics(numbers, outlier_percent=10, threshold=1.5):
+    # First, we will remove all values below the threshold
+    filtered_numbers = [num for num in numbers if num >= threshold]
+    # Next, we'll sort the numbers
+    sorted_numbers = sorted(filtered_numbers)
 
-#grid_list = []  # saving grid here
+    # Determine the number of outliers to exclude
+    k = int(len(sorted_numbers) * outlier_percent / 100)
 
-#################
+    # Exclude the k largest numbers
+    numbers_without_outliers = sorted_numbers[:-k]
+
+    # Compute the mode using Counter
+    mode_counter = Counter(numbers_without_outliers)
+    mode = max(mode_counter.keys(), key=lambda x: mode_counter[x])
+
+    # Compute the median using the statistics module
+    med = median(numbers_without_outliers)
+
+    # Compute the mean using the statistics module
+    avg = mean(numbers_without_outliers)
+
+    return mode, med, avg
+
 FixedscaleValues = [3,0.8, 0.1] # random value here. format should be [range,max,min]
 
 class grid:
@@ -80,7 +70,7 @@ def detect_face_and_nose(image_path):
     face_detector = dlib.get_frontal_face_detector()
     
     # Load the facial landmark detector from dlib
-    landmark_predictor = dlib.shape_predictor(r"C:\Users\ahj28\Desktop\Python\shape_predictor_68_face_landmarks.dat") #CHANGE FILE PATH
+    landmark_predictor = dlib.shape_predictor(r"C:\Users\panda\OneDrive\Desktop\FacialRecTests\EmotionRecognotion-2\shape_predictor_68_face_landmarks.dat") #CHANGE FILE PATH
 
     # Convert the image to grayscale
     gray = cv2.cvtColor(image_path, cv2.COLOR_BGR2GRAY)
@@ -104,35 +94,6 @@ def detect_face_and_nose(image_path):
     return nose_coords
 
 def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
-    """the read_dic_file is a simple wrapper function that allows to parse a dic
-         file (given by the init() function) and compute the strain fields. The displacement fields
-         can be smoothed thanks to many interpolation methods. A good interpolation method to do this
-         job is the 'spline' method. After this process, note that a new folder named 'pydic' is
-         created into the image directory where different results files are written.
-
-         These results are :
-         - 'disp' that contains images where the displacement of the correlation windows are highlighted. You
-         can apply a scale to amplify these displacements.
-         - 'grid' that contains images where the correlation grid is highlighted. You
-         can apply a scale to amplify the strain of this grid.
-         - 'marker' that contains images  where the displacement of corraleted markers are highlighted
-         - 'result' where you can find raw text file (csv format) that constain the computed displacement
-         and strain fields of each picture.
-
-         * required argument:
-         - the first arg 'result_file' must be a result file given by the init() function
-         * optional named arguments ;
-         - 'interpolation' the allowed vals are 'raw', 'spline', 'linear', 'delaunnay', 'cubic', etc...
-         a good value is 'raw' (for no interpolation) or spline that smooth your data.
-         - 'save_image ' is True or False. Here you can choose if you want to save the 'disp', 'grid' and
-         'marker' result images
-         - 'scale_disp' is the scale (a float) that allows to amplify the displacement of the 'disp' images
-         - 'sparsity' is the value (an int) that allows to sparsify the plot of displacement vectors of the 'vmap' images
-         - 'scale_grid' is the scale (a float) that allows to amplify the 'grid' images
-         - 'meta_info_file' is the path to a meta info file. A meta info file is a simple csv file
-         that contains some additional data for each pictures such as time or load values.
-    """
-
     # read meta info file
     meta_info = {}
     if 'meta_info_file' in kwargs:
@@ -150,8 +111,8 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
 
     #Actual important Part
 
-    pp = mainDir + "/EyeBlack"
-    image_pattern = pp+'/*.png'
+    dic_file = mainDir +'/result.dic' 
+    image_pattern = mainDir+'/*.png'
     img_list = sorted(glob.glob(image_pattern))
     assert len(img_list) > 1, "there is not image in " + str(image_pattern)
 
@@ -187,8 +148,7 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
                 if len(pixel) == 4 and pixel[3] == 0:
                     number_alpha += 1
     print(number_alpha)
-
-    result_file = pp + "/result.dic"
+    result_file = r"C:\Users\panda\Desktop\KetPatients\ket-eyeblack\4a" + "/result.dic"
     # first read grid
 
     with open(result_file) as f:
@@ -229,35 +189,14 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
         print("Nose not detected in the first image. Aborting.")
         exit()
 
-    orixmax = xmax
-    for i in range(5):
-        if(i == 0):
-            title = "Whole Face"
+    for k in range(3):
+        if(k == 0):
+            title = "Mode"
             #all min max stay same
-        elif(i == 1):
-            title = "Right_Down"
-            xmin = nose_coords[0]
-            ymin = nose_coords[1]
-            xmax = xmax
-            ymax = ymax
-        elif(i==2):
-            title = "Left_Down"
-            xmin = 0
-            ymin = nose_coords[1]
-            xmax = nose_coords[0]
-            ymax = ymax
-        elif(i==3):
-            title = "Left_Up"
-            xmin = 0
-            ymin = 0
-            xmax = nose_coords[0]
-            ymax = nose_coords[1]
-        elif(i == 4):
-            title = "Right_Up"
-            xmin = nose_coords[0]
-            ymin = 0
-            xmax = orixmax
-            ymax = nose_coords[1]
+        elif(k == 1):
+            title = "Median"
+        elif(k==2):
+            title = "Mean"
         x_avgDist = []
         y_avgDist = []
 
@@ -283,31 +222,53 @@ def read_dic_file(mainDir, grid_size_px, *args, **kwargs): #HEREREERERER
         print("alpha coordinates: ",number_alpha)
 
         numPoint = 0
-        for i in range(len(point_list)-1):
+        for i in range(1, len(point_list)-1):
+            distance = []
             numPoint = 0
             curFrame = point_list[0];
             nextFrame = point_list[i];
             distSum = 0;
+            xlist = []
+            ylist = []
             for coor in range(len(curFrame)):
                 x = nextFrame[coor][0]
                 y = nextFrame[coor][1]
                 if x>xmin and x<xmax and y>ymin and y<ymax:
                     numPoint+=1
                     dx = nextFrame[coor][0] - curFrame[coor][0]
+                    xlist.append(dx)
                     dy = nextFrame[coor][1] - curFrame[coor][1]
-                    distSum += (dx ** 2 + dy **2) ** 0.5
-
-            avgDist = distSum / (len(curFrame)-number_alpha) #skip the point with alpha = 0 (transparent)
+                    ylist.append(dy)
+            xmode, xmedian, xmean_value = compute_statistics(xlist)
+            ymode, ymedian, ymean_value = compute_statistics(ylist)
+            for coor in range(len(curFrame)):
+                x = nextFrame[coor][0]
+                y = nextFrame[coor][1]
+                if x>xmin and x<xmax and y>ymin and y<ymax:
+                    numPoint+=1
+                    dx = nextFrame[coor][0] - curFrame[coor][0] - xmode
+                    dy = nextFrame[coor][1] - curFrame[coor][1] - ymode
+                    distSum = (dx ** 2 + dy **2) ** 0.5
+                avgDist = distSum / (len(curFrame) - number_alpha) 
+                distance.append(distSum)
             print(0,i,": ",avgDist," total points:",(numPoint-number_alpha))
+            mode, median, mean_value = compute_statistics(distance)
+            print("Mode:", mode) # Output will be 25
+            print("Median:", median) # Output will be 25
+            print("Mean:", mean_value) # Output will be 22.5
             x_avgDist.append(i)
-            y_avgDist.append(avgDist)
-
+            if k == 0:
+                y_avgDist.append(mode)
+            elif k == 1:
+                y_avgDist.append(median)
+            elif k == 2:
+                y_avgDist.append(mean_value)
         plt.plot(x_avgDist, y_avgDist)
         
         # naming the x axis
         plt.xlabel('Frame')
         # naming the y axis
-        plt.ylabel('Average Magnitude of vectors')
+        plt.ylabel('Mode')
         
         # giving a title to my graph
         plt.title(title)
@@ -401,16 +362,5 @@ class Plot:
         self.cb.set_clim(self.smin.val, self.smax.val)
         self.cb.set_ticks(np.linspace(self.smin.val, self.smax.val, num=10))
 
-        # # self.cb = self.figure.colorbar(self.im)
-
-        # self.cb.set_clim(self.smin.val, self.smax.val)
-        # self.cb.on_mappable_changed(self.im)
-        # self.cb.draw_all()
-        # self.cb.update_normal(self.im)
-        # self.cb.update_bruteforce(self.im)
-        # plt.colorbar(self.im)
-
-
-
-read_dic_file(r"C:\Users\ahj28\Desktop\Garcia DISC Data\ControlsAfterAugust\b5\b5bef", (30,30), interpolation='raw', save_image=True, scale_disp=1, scale_grid=1) #CHANGE FILE PATH
+read_dic_file(r"C:\Users\panda\Desktop\KetPatients\ket-eyeblack\4a", (10,10), interpolation='raw', save_image=True, scale_disp=1, scale_grid=1) #CHANGE FILE PATH
 #def read_dic_file(mainDir, grid_size_px, *args, **kwargs):

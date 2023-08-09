@@ -22,7 +22,7 @@ def plot_csv_files(files_list, x_column_index, y_column_index, labels):
     ax.set_ylabel("Values")
     ax.legend()
 
-    plt.vlines(x=np.linspace(-1,100,10), ymin=0, ymax=len(np.linspace(1,6,4)), colors='purple', ls='--', lw=1)
+    plt.vlines(x=np.linspace(0,98,11), ymin=0, ymax=len(np.linspace(1,6,4)), colors='purple', ls='--', lw=1)
 
     # Show the plot
     plt.show()
@@ -30,9 +30,11 @@ def plot_csv_files(files_list, x_column_index, y_column_index, labels):
     
 
 # Example usage with three files
-files_list = ['Ketamin\\3b\graph\Whole Face.csv','Ketamin\\4a\graph\Whole Face.csv']  # Add more filenames as needed
+#files_list = ['b3\\b3aft\graph\Right_Up.csv','b3\\b3aft\graph\Left_Up.csv','b3\\b3aft\graph\Left_Down.csv','b3\\b3aft\graph\Right_Down.csv']  # Add more filenames as needed
+files_list = ['Ketamin\\3b\graph\Whole Face.csv','Ketamin\\4a\graph\Whole Face.csv']
 x_column_index = 0  # Assuming the x values are in the first column (index 0)
 y_column_index = 1  # Assuming the y values are in the second, third, and fourth columns (indices 1, 2, and 3)
+#labels = ['right up', 'left up', 'left down', 'right down']
 labels = ['3b','4a']
 0
 plot_csv_files(files_list, x_column_index, y_column_index, labels)

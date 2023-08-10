@@ -660,10 +660,10 @@ def init(image_pattern, win_size_px, grid_size_px, result_file, area_of_interses
             maxY = y_eval[indmaxY]
 
             # Print the location of the modes
-            for peak in peaksY:
-                print(f"Mode at x = {y_eval[peak]}")
+            #for peak in peaksY:
+             #   print(f"Mode at x = {y_eval[peak]}")
 
-            print(maxX, " " , maxY)
+            #print(maxX, " " , maxY)
 
             # Check if the image has an alpha channel (RGBA or LA mode)
             if image.mode in ('RGBA', 'LA'):
